@@ -8,31 +8,15 @@ import { notesCollection, db } from "./firebase"
 export default function App() {
     const [notes, setNotes] = React.useState([])
     const [currentNoteId, setCurrentNoteId] = React.useState("")
+    const [tempNoteText, setTempNoteText] = React.useState("")
     const sortedNotes = notes.slice().sort((a, b) => b.updatedAt - a.updatedAt)
 
-    async function createNewNote() {
-        const newNote = {
-            body: "# Type your markdown note's title here",
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-        }
-        const newNoteRef = await addDoc(notesCollection, newNote)
-        setCurrentNoteId(newNoteRef.id)
-    }
-
-    React.useEffect(() => {
-        if(!currentNoteId) {
-            setCurrentNoteId(notes[0]?.id)
-        }
-    }, [notes])
-
-    const currentNote = 
-        notes.find(note => note.id === currentNoteId) 
+    const currentNote =
+        notes.find(note => note.id === currentNoteId)
         || notes[0]
 
     React.useEffect(() => {
         const unsubscribe = onSnapshot(notesCollection, function(snapshot) {
-            //Sync up local notes array with snapshot data
             const notesArr = snapshot.docs.map(doc => {
                 const data = doc.data()
                 return {
@@ -46,6 +30,37 @@ export default function App() {
         })
         return unsubscribe
     }, [])
+
+    React.useEffect(() => {
+        if(!currentNoteId) {
+            setCurrentNoteId(notes[0]?.id)
+        }
+    }, [notes])
+
+    React.useEffect(() => {
+        if(currentNote) {
+            setTempNoteText(currentNote.body)
+        }
+    }, [currentNote])
+
+    React.useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            if(currentNote && tempNoteText !== currentNote.body) {
+                updateNote(tempNoteText)
+            }
+        }, 500)
+        return () => clearTimeout(timeoutId)
+    }, [tempNoteText, currentNote])
+
+    async function createNewNote() {
+        const newNote = {
+            body: "# Type your markdown note's title here",
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        }
+        const newNoteRef = await addDoc(notesCollection, newNote)
+        setCurrentNoteId(newNoteRef.id)
+    }
     
     async function updateNote(text) {
         const docRef = doc(db, "notes", currentNoteId)
@@ -77,8 +92,8 @@ export default function App() {
                     deleteNote={deleteNote}
                 />
                 <Editor 
-                    currentNote={currentNote} 
-                    updateNote={updateNote} 
+                    tempNoteText={tempNoteText}
+                    setTempNoteText={setTempNoteText} 
                 />
             </Split>
             :
